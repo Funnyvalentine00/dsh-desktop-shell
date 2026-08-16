@@ -1,0 +1,15 @@
+# dsh-desktop-shell bundle patch: one host row spawning the Electron desktop window.
+# Bundle layers compose over an EMPTY entry list, so the row must be inserted
+# (a bare `- id: ...` row would be treated as a patch targeting an existing
+# entry and fail with "entry not found"). `name` is the bare package name —
+# the loader resolves it against the profile config dir's node_modules and
+# loads the package's main (lib/index.js). Relative paths like './lib/index.js'
+# would resolve against the profile dir, not the package, and fail.
+
+- insert:
+    - id: desktop-shell
+      name: 'dsh-desktop-shell'
+      inject: [webServer]
+      config:
+        enabled: true
+        exitOnClose: true

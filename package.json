@@ -1,0 +1,33 @@
+{
+  "name": "dsh-desktop-shell",
+  "version": "0.1.0",
+  "description": "Desktop shell for DeepSeek Harness web GUI: auto-open an Electron window with tray on `dsh web`.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./electron-main": "./lib/electron-main.cjs",
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "src", "cordis.patch.yml", "assets"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "scripts": {
+    "build": "tsdown && node scripts/copy-electron-main.mjs",
+    "test": "vitest run --configLoader native",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "electron": "^43.4.0",
+    "@deepseek-ai/schemastery": "^3.18.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-app-boot": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-base": "^0.1.0-rc.6",
+    "tsdown": "0.22.2",
+    "typescript": "~5.7.2",
+    "vitest": "^3.0.0"
+  },
+  "license": "MIT"
+}

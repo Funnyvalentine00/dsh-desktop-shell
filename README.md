@@ -80,6 +80,22 @@ dsh web
 
 托盘「退出」:electron 以 exit 0 退出 → 插件调用 launcher 提供的 `ctx.appExit(0)`(有界树销毁 + 进程退出),整个 `dsh web` 命令结束。
 
+## 桌面快捷方式(可选)
+
+想双击桌面图标直接打开,而不是在终端输入 `dsh web`:
+
+- `scripts/launch-dsh-web.ps1` + `scripts/launch-dsh-web.cmd`:双击启动器(隐藏控制台运行 `dsh web`;若已在运行则唤起已有 Electron 窗口,不重复启动)
+- `assets/icon.ico`:快捷方式图标(由 `assets/icon.png` 生成)
+- 桌面快捷方式「DeepSeek Harness」已生成,指向:
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File <项目>\scripts\launch-dsh-web.ps1
+```
+
+行为:双击 → dsh 启动 + Electron 窗口弹出;再双击 → 唤起已有窗口;托盘「退出」→ dsh 一并退出。日志:`%USERPROFILE%\.dsh\desktop-shell-launcher.log`(启动器)与 `desktop-shell-web.log`(dsh web 输出)。若项目/主目录移动,需同步修改两个脚本里的路径。
+
+> 注:`launch-dsh-web.cmd` 必须保持纯 ASCII 内容 —— cmd.exe 按系统 ANSI 代码页读取批处理文件,内嵌中文路径会在 GBK 系统上乱码(文件路径本身含中文没问题,内容不能有)。
+
 ## 卸载
 
 1. 从 profile `package.json` 的 `dependencies` 与 `dsh.profile.bundles` 移除 `dsh-desktop-shell`

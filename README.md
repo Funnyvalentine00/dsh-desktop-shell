@@ -85,7 +85,7 @@ dsh web
 想双击桌面图标直接打开,而不是在终端输入 `dsh web`:
 
 - `scripts/launch-dsh-web.ps1` + `scripts/launch-dsh-web.cmd`:双击启动器(隐藏控制台运行 `dsh web`;若已在运行则唤起已有 Electron 窗口,不重复启动)
-- `assets/icon.png`(黑底白鲸,窗口/任务栏图标)、`assets/icon-tray.png`(透明底白鲸,托盘图标)、`assets/icon.ico`(多尺寸,快捷方式图标):由官方 DeepSeek 鲸鱼 logo(dsh 前端 favicon.svg)渲染,重生成用 `scripts/render-icon.cjs`(需在无文件沙箱的后台环境运行 —— Chromium 的 mojo IPC 依赖命名管道)
+- `assets/icon.png`(黑底白鲸,窗口/任务栏图标)、`assets/icon-tray.png`(透明底白鲸,托盘图标)、`assets/icon.ico` + `assets/deepseek-whale.ico`(多尺寸 BMP 格式,快捷方式图标 —— 桌面快捷方式指向独立文件名 `deepseek-whale.ico`,以绕过资源管理器按路径的图标缓存):由官方 DeepSeek 鲸鱼 logo(dsh 前端 favicon.svg)渲染,重生成用 `scripts/render-icon.cjs`(需在无文件沙箱的后台环境运行 —— Chromium 的 mojo IPC 依赖命名管道)
 - 桌面快捷方式「DeepSeek Harness」已生成,指向:
 
 ```

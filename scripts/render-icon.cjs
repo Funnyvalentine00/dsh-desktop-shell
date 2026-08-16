@@ -147,6 +147,11 @@ app.whenReady().then(async () => {
       const icoPath = path.join(__dirname, "..", "assets", "icon.ico");
       fs.writeFileSync(icoPath, buildIco(pngs));
       console.log("wrote " + icoPath + " (" + (fs.statSync(icoPath).size) + " bytes)");
+      // The desktop shortcut references a distinct filename: Explorer caches
+      // icons per path, so regeneration must refresh BOTH names.
+      const whaleIcoPath = path.join(__dirname, "..", "assets", "deepseek-whale.ico");
+      fs.copyFileSync(icoPath, whaleIcoPath);
+      console.log("wrote " + whaleIcoPath);
     }
     console.log(`rendered ${variant} (${sizes.join(",")}) -> ${outDir}`);
     app.exit(0);

@@ -1,0 +1,2 @@
+# npm-package exclusions (npm honors .npmignore over .gitignore)
+assets/.icon-build/

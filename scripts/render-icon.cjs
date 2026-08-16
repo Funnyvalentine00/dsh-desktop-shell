@@ -77,17 +77,76 @@ async function capturePage() {
   }
 }
 
+// Build a classic BMP-format multi-size .ico from PNG buffers (maximum
+// compatibility with Windows Explorer, unlike PNG-compressed .ico entries).
+// Returns the .ico bytes.
+function buildIco(pngs) {
+  const entries = [];
+  for (const { size, png } of pngs) {
+    const img = nativeImage.createFromBuffer(png);
+    const bgra = img.toBitmap(); // top-down BGRA, width*height*4
+    const w = img.getSize().width;
+    const h = img.getSize().height;
+    // DIB pixels are bottom-up: flip row order.
+    const rowBytes = w * 4;
+    const xor = Buffer.alloc(rowBytes * h);
+    for (let y = 0; y < h; y += 1) {
+      bgra.copy(xor, (h - 1 - y) * rowBytes, y * rowBytes, (y + 1) * rowBytes);
+    }
+    // AND mask: fully opaque (all zeros), each 1-bpp row padded to 4 bytes.
+    const andRow = Math.ceil(Math.ceil(w / 8) / 4) * 4;
+    const and = Buffer.alloc(andRow * h);
+    // BITMAPINFOHEADER (40 bytes) + XOR + AND.
+    const hdr = Buffer.alloc(40);
+    hdr.writeInt32LE(40, 0);
+    hdr.writeInt32LE(w, 4);
+    hdr.writeInt32LE(h * 2, 8);
+    hdr.writeUInt16LE(1, 12);
+    hdr.writeUInt16LE(32, 14);
+    // biCompression = BI_RGB (0), rest zero.
+    const blob = Buffer.concat([hdr, xor, and]);
+    entries.push({ size: w, blob });
+  }
+  entries.sort((a, b) => a.size - b.size);
+  const headerSize = 6 + 16 * entries.length;
+  let offset = headerSize;
+  const dir = Buffer.alloc(headerSize);
+  dir.writeUInt16LE(0, 0);
+  dir.writeUInt16LE(1, 2);
+  dir.writeUInt16LE(entries.length, 4);
+  entries.forEach((e, i) => {
+    const o = 6 + i * 16;
+    dir.writeUInt8(e.size >= 256 ? 0 : e.size, o);
+    dir.writeUInt8(e.size >= 256 ? 0 : e.size, o + 1);
+    dir.writeUInt8(0, o + 2);
+    dir.writeUInt8(0, o + 3);
+    dir.writeUInt16LE(1, o + 4);
+    dir.writeUInt16LE(32, o + 6);
+    dir.writeUInt32LE(e.blob.length, o + 8);
+    dir.writeUInt32LE(offset, o + 12);
+    offset += e.blob.length;
+  });
+  return Buffer.concat([dir, ...entries.map((e) => e.blob)]);
+}
+
 app.disableHardwareAcceleration();
 app.whenReady().then(async () => {
   try {
     fs.mkdirSync(outDir, { recursive: true });
     const big = await capturePage();
+    const pngs = [];
     for (const size of sizes) {
       const resized = big.resize({ width: size, height: size });
       const png = resized.toPNG();
       if (!png || png.length === 0) throw new Error("empty PNG for " + size);
       fs.writeFileSync(path.join(outDir, `${size}.png`), png);
+      pngs.push({ size, png });
       console.log("ok " + size);
+    }
+    if (variant === "app") {
+      const icoPath = path.join(__dirname, "..", "assets", "icon.ico");
+      fs.writeFileSync(icoPath, buildIco(pngs));
+      console.log("wrote " + icoPath + " (" + (fs.statSync(icoPath).size) + " bytes)");
     }
     console.log(`rendered ${variant} (${sizes.join(",")}) -> ${outDir}`);
     app.exit(0);

@@ -2,3 +2,5 @@ node_modules/
 lib/
 *.tgz
 .npm-cache/
+assets/.icon-build/
+.icon-ud/

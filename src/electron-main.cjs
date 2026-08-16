@@ -87,7 +87,12 @@ function createWindow() {
 
 function createTray() {
   try {
-    const iconPath = path.join(__dirname, "..", "assets", "icon.png");
+    // Transparent white-whale tray icon (visible on dark taskbars); fall back
+    // to the app icon if the tray asset is missing.
+    const trayIconPath = path.join(__dirname, "..", "assets", "icon-tray.png");
+    const iconPath = fs.existsSync(trayIconPath)
+      ? trayIconPath
+      : path.join(__dirname, "..", "assets", "icon.png");
     tray = new Tray(iconPath);
     tray.setToolTip("DeepSeek Harness");
     tray.setContextMenu(Menu.buildFromTemplate([

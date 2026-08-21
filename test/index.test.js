@@ -6,6 +6,7 @@ import {
   buildWindowUrl,
   onChildExit,
   resolveElectronPath,
+  shouldOpenBrowserFallback,
   shouldSpawn,
   watchChildExit
 } from "../lib/index.js";
@@ -75,6 +76,19 @@ describe("resolveElectronPath", () => {
   });
 });
 
+describe("shouldOpenBrowserFallback", () => {
+  it("opens the fallback browser when the web app was told not to (--no-open)", () => {
+    expect(shouldOpenBrowserFallback({ openBrowserFallback: true }, { openBrowser: false })).toBe(true);
+  });
+  it("never double-opens when the web app will open the browser", () => {
+    expect(shouldOpenBrowserFallback({ openBrowserFallback: true }, { openBrowser: true })).toBe(false);
+    expect(shouldOpenBrowserFallback({ openBrowserFallback: true }, undefined)).toBe(false);
+  });
+  it("respects config.openBrowserFallback=false", () => {
+    expect(shouldOpenBrowserFallback({ openBrowserFallback: false }, { openBrowser: false })).toBe(false);
+  });
+});
+
 describe("watchChildExit", () => {
   const URL = "http://127.0.0.1:3080";
   it("calls onExitDsh when exit code is 0 and exitOnClose is true", () => {
@@ -98,5 +112,26 @@ describe("watchChildExit", () => {
     child.emit("error", new Error("ENOENT"));
     expect(warns.length).toBeGreaterThan(0);
     expect(warns[0]).toContain(URL);
+  });
+  it("invokes onKeepRunning on non-zero exit (browser fallback path)", () => {
+    const child = new EventEmitter();
+    let kept = 0;
+    watchChildExit(child, true, () => {}, { warn: () => {} }, URL, () => { kept += 1; });
+    child.emit("exit", 1);
+    expect(kept).toBe(1);
+  });
+  it("does not invoke onKeepRunning on exit 0 (shutdown path)", () => {
+    const child = new EventEmitter();
+    let kept = 0;
+    watchChildExit(child, true, () => {}, { warn: () => {} }, URL, () => { kept += 1; });
+    child.emit("exit", 0);
+    expect(kept).toBe(0);
+  });
+  it("invokes onKeepRunning when spawning fails", () => {
+    const child = new EventEmitter();
+    let kept = 0;
+    watchChildExit(child, true, () => {}, { warn: () => {} }, URL, () => { kept += 1; });
+    child.emit("error", new Error("ENOENT"));
+    expect(kept).toBe(1);
   });
 });

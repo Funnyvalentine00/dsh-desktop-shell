@@ -18,7 +18,8 @@ const require = createRequire(import.meta.url);
 export const Config = z.object({
   enabled: z.boolean().default(true),
   electronPath: z.string(),
-  exitOnClose: z.boolean().default(true)
+  exitOnClose: z.boolean().default(true),
+  openBrowserFallback: z.boolean().default(true)
 });
 
 export type DesktopShellConfig = Schemastery.TypeT<typeof Config>;
@@ -88,21 +89,53 @@ export function spawnDesktop(electronPath: string, mainScript: string, url: stri
   });
 }
 
+/**
+ * Open the default browser at the URL (fallback when the desktop window cannot
+ * start). Best-effort: failures must never crash the host.
+ */
+export function openBrowser(url: string): void {
+  try {
+    if (process.platform === "win32") {
+      spawn("cmd.exe", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref?.();
+    } else {
+      const opener = process.platform === "darwin" ? "open" : "xdg-open";
+      spawn(opener, [url], { detached: true, stdio: "ignore" }).unref?.();
+    }
+  } catch { /* fallback open must never crash the host */ }
+}
+
+/**
+ * Whether the plugin must open the browser itself when the window cannot
+ * start: only when the web app was told NOT to open it (`--no-open`), so a
+ * degraded launch still lands somewhere visible without double-opening.
+ */
+export function shouldOpenBrowserFallback(
+  config: { openBrowserFallback: boolean },
+  webStartup?: { openBrowser?: boolean }
+): boolean {
+  return config.openBrowserFallback && webStartup?.openBrowser === false;
+}
+
 /** Hook dsh shutdown onto the child's exit. */
 export function watchChildExit(
   child: ReturnType<typeof spawn>,
   exitOnClose: boolean,
   onExitDsh: () => void,
   logger: { warn: (msg: string) => void },
-  url: string
+  url: string,
+  onKeepRunning?: () => void
 ): void {
   child.on("exit", (code) => {
     const decision = onChildExit(code, exitOnClose);
     if (decision === "exit-dsh") onExitDsh();
-    else logger.warn(`desktop-shell: electron exited with code ${String(code)}; keeping dsh in browser mode`);
+    else {
+      logger.warn(`desktop-shell: electron exited with code ${String(code)}; keeping dsh in browser mode`);
+      onKeepRunning?.();
+    }
   });
   child.on("error", (err) => {
     logger.warn(`desktop-shell: failed to start electron: ${err.message}; browser mode at ${url}`);
+    onKeepRunning?.();
   });
 }
 
@@ -143,19 +176,29 @@ export function apply(ctx: any, config: DesktopShellConfig): void {
     ctx.logger.info(`desktop-shell: disabled; browser mode at ${url}`);
     return;
   }
+  // When the web app was launched with --no-open it will not open the browser,
+  // so the plugin owns the fallback: a failed window still leaves something
+  // visible, and a healthy window never double-opens the browser.
+  const browserFallback = shouldOpenBrowserFallback(config, ctx.webStartup);
+  const openFallback = () => {
+    ctx.logger.info(`desktop-shell: opening browser at ${url} (desktop window unavailable)`);
+    openBrowser(url);
+  };
   try {
     const electronPath = resolveElectronPath(config);
     if (electronPath === undefined) {
       ctx.logger.warn(`desktop-shell: electron not found; browser mode at ${url}`);
+      if (browserFallback) openFallback();
       return;
     }
     const child = spawnDesktop(electronPath, electronMainScript(), url);
     watchChildExit(child, config.exitOnClose, () => {
       ctx.logger.info("desktop-shell: window closed, shutting down dsh");
       shutdownDsh(ctx);
-    }, ctx.logger, url);
+    }, ctx.logger, url, browserFallback ? openFallback : undefined);
     ctx.logger.info(`desktop-shell: desktop window opening at ${url}`);
   } catch (err) {
     ctx.logger.warn(`desktop-shell: ${err instanceof Error ? err.message : String(err)}; browser mode at ${url}`);
+    if (browserFallback) openFallback();
   }
 }

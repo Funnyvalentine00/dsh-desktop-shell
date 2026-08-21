@@ -1,4 +1,4 @@
-﻿# DeepSeek Harness desktop launcher (invoked hidden from the desktop shortcut).
+# DeepSeek Harness desktop launcher (invoked hidden from the desktop shortcut).
 #
 #   * If `dsh web` is already running on the port, spawn a second Electron
 #     instance; the single-instance lock makes it exit and the running window
@@ -37,7 +37,16 @@ function Test-PortOpen([int]$p) {
   } catch { return $false }
 }
 
-if (Test-PortOpen $Port) {
+# First probe, then a second opinion: a dsh web that is mid-boot (or a peer
+# shortcut/terminal launch) can make the first probe miss, which would start a
+# duplicate instance that then dies with EADDRINUSE.
+$portOpen = Test-PortOpen $Port
+if (-not $portOpen) {
+  Start-Sleep -Milliseconds 2000
+  $portOpen = Test-PortOpen $Port
+}
+
+if ($portOpen) {
   Write-Log "already running at $Url - focusing window"
   $exe = Join-Path $Project "node_modules\electron\dist\electron.exe"
   $main = Join-Path $Project "lib\electron-main.cjs"
@@ -55,7 +64,9 @@ if (Test-PortOpen $Port) {
 Write-Log "starting dsh web on port $Port"
 Start-Process -FilePath (Join-Path $Project "scripts\launch-dsh-web.cmd") -WindowStyle Hidden | Out-Null
 
-$deadline = (Get-Date).AddSeconds(35)
+# Give a heavy profile (many bundles) time to boot; also cover the race where a
+# peer instance grabs the port mid-boot — the poll accepts whoever binds it.
+$deadline = (Get-Date).AddSeconds(60)
 $up = $false
 while ((Get-Date) -lt $deadline) {
   Start-Sleep -Milliseconds 800
@@ -69,6 +80,6 @@ if ($up) {
   $tail = ""
   if (Test-Path $WebLog) { $tail = (Get-Content $WebLog -Tail 15) -join "`n" }
   [System.Windows.Forms.MessageBox]::Show(
-    "dsh web 未能在端口 $Port 启动(35 秒超时)。`n`n最后输出:`n$tail",
+    "dsh web 未能在端口 $Port 启动(60 秒超时)。`n`n最后输出:`n$tail",
     "DeepSeek Harness 启动失败") | Out-Null
 }

@@ -1,10 +1,18 @@
-# dsh-desktop-shell bundle patch: one host row spawning the Electron desktop window.
-# Bundle layers compose over an EMPTY entry list, so the row must be inserted
-# (a bare `- id: ...` row would be treated as a patch targeting an existing
-# entry and fail with "entry not found"). `name` is the bare package name —
-# the loader resolves it against the profile config dir's node_modules and
-# loads the package's main (lib/index.js). Relative paths like './lib/index.js'
-# would resolve against the profile dir, not the package, and fail.
+# dsh-desktop-shell bundle patch.
+#
+# Two layers:
+#   1. insert the desktop-shell host row (spawns the Electron window after the
+#      web server binds). `name` is the bare package name — the loader resolves
+#      it against the profile config dir's node_modules and loads the package's
+#      main (lib/index.js). Relative paths like './lib/index.js' would resolve
+#      against the profile dir, not the package, and fail.
+#   2. suppress the web app's default-browser handoff: while this plugin is
+#      installed the Electron window IS the surface, so `dsh web` must not also
+#      open a browser tab. If the window cannot start, desktop-shell re-opens
+#      the browser itself (`openBrowserFallback`) so a degraded launch still
+#      lands somewhere visible. Targeting a row by id that is missing only
+#      warns and skips (loader applyEntryPatches), so this stays safe even if
+#      dsh-web-app ever renames the row.
 
 - insert:
     - id: desktop-shell
@@ -13,3 +21,11 @@
       config:
         enabled: true
         exitOnClose: true
+        openBrowserFallback: true
+
+- id: web-runtime
+  config:
+    openBrowser: false
+    printUrl: true
+    surfaceContext: true
+    trustedHosts: !!js ctx.webStartup.trustedHosts

@@ -1,4 +1,4 @@
-# DeepSeek Harness desktop launcher (invoked hidden from the desktop shortcut).
+﻿# DeepSeek Harness desktop launcher (invoked hidden from the desktop shortcut).
 #
 #   * If `dsh web` is already running on the port, spawn a second Electron
 #     instance; the single-instance lock makes it exit and the running window
@@ -13,7 +13,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $HomeDir = "C:\Users\XHDN\.dsh"
-$Project = "E:\dsh插件\desktop\dsh-desktop-shell"
+# Derive the project root from this script's own location instead of a
+# hardcoded path: PS 5.1 reads .ps1 files without a UTF-8 BOM as ANSI, which
+# would garble a Chinese literal like "E:\dsh插件\..." and break every path.
+$Project = Split-Path -Parent $PSScriptRoot
 $Url = "http://127.0.0.1:$Port"
 $LauncherLog = Join-Path $HomeDir "desktop-shell-launcher.log"
 $WebLog = Join-Path $HomeDir "desktop-shell-web.log"
